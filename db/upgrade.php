@@ -1,5 +1,5 @@
 <?php
-// This file is part of Moodle - https://moodle.org/
+// This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,29 +8,31 @@
 //
 // Moodle is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle. If not, see <https://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Upgrade script for local_recertify.
+ * Upgrade steps for local_recertify.
  *
  * @package    local_recertify
- * @copyright  2026 LMS Hosting Services
- * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @copyright  2026 LMS-Labs
+ * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
 /**
- * Run all local_recertify upgrade steps.
+ * Execute local_recertify upgrade from the given old version.
  *
- * @param int $oldversion The version we are upgrading from.
+ * @param int $oldversion
  * @return bool
  */
-function xmldb_local_recertify_upgrade(int $oldversion): bool {
-    // Future upgrade steps go here.
+function xmldb_local_recertify_upgrade($oldversion) {
+    if ($oldversion < 2026073100) {
+        upgrade_plugin_savepoint(true, 2026073100, 'local', 'recertify');
+    }
     return true;
 }
