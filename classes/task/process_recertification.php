@@ -30,7 +30,6 @@ use core\task\scheduled_task;
  * Process all due recertification resets and send advance warning notifications.
  */
 class process_recertification extends scheduled_task {
-
     /**
      * Return the task name shown in the admin UI.
      *

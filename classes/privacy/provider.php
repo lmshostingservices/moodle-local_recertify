@@ -38,7 +38,6 @@ class provider implements
     \core_privacy\local\metadata\provider,
     \core_privacy\local\request\plugin\provider,
     \core_privacy\local\request\core_userlist_provider {
-
     /**
      * Return metadata about stored user data.
      *
