@@ -25,8 +25,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_recertify';
-$plugin->version   = 2026073100;
+$plugin->version   = 2026082901;
 $plugin->requires  = 2024042200;        // Moodle 4.4.
 $plugin->supported = [404, 503];        // Moodle 4.4 – 5.3.
 $plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = '1.0.1';
+$plugin->release   = '1.0.2'; // RELEASE RECOVERY: Republished the reviewed authoritative source under a new immutable tag because the historical tag contained a different source tree. No functional changes.
