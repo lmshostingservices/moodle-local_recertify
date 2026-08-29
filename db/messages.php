@@ -15,7 +15,10 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Capability definitions for local_recertify.
+ * Message provider definitions for local_recertify.
+ *
+ * Without these, message_send() rejects both notifications as coming from an
+ * unregistered provider and nothing is ever delivered.
  *
  * @package    local_recertify
  * @copyright  2026 LMS Hosting Services
@@ -24,16 +27,20 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$capabilities = [
-    'local/recertify:manage' => [
-        'riskbitmask'  => RISK_DATALOSS,
-        'captype'      => 'write',
-        'contextlevel' => CONTEXT_SYSTEM,
-        'archetypes'   => ['manager' => CAP_ALLOW],
+$messageproviders = [
+    // Sent in advance of a scheduled recertification reset.
+    'warningnotice' => [
+        'defaults' => [
+            'email' => MESSAGE_PERMITTED + MESSAGE_DEFAULT_ENABLED,
+            'popup' => MESSAGE_PERMITTED + MESSAGE_DEFAULT_ENABLED,
+        ],
     ],
-    'local/recertify:viewlog' => [
-        'captype'      => 'read',
-        'contextlevel' => CONTEXT_SYSTEM,
-        'archetypes'   => ['manager' => CAP_ALLOW],
+
+    // Sent at the moment a learner's progress is reset.
+    'resetnotice' => [
+        'defaults' => [
+            'email' => MESSAGE_PERMITTED + MESSAGE_DEFAULT_ENABLED,
+            'popup' => MESSAGE_PERMITTED + MESSAGE_DEFAULT_ENABLED,
+        ],
     ],
 ];

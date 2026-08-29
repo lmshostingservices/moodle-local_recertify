@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/recertify/db" VERSION="20260731" COMMENT="XMLDB file for local_recertify"
+<XMLDB PATH="local/recertify/db" VERSION="20260829" COMMENT="XMLDB file for local_recertify"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
   <TABLES>
@@ -28,14 +28,16 @@
         <INDEX NAME="idx_course" UNIQUE="true" FIELDS="courseid"/>
       </INDEXES>
     </TABLE>
-    <TABLE NAME="local_recertify_log" COMMENT="Audit log of all recertification resets">
+    <TABLE NAME="local_recertify_log" COMMENT="Audit log of all recertification resets and warnings">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="scheduleid" TYPE="int" LENGTH="10" NOTNULL="true"/>
         <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true"/>
         <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true"/>
-        <FIELD NAME="depth" TYPE="char" LENGTH="20" NOTNULL="true"/>
-        <FIELD NAME="trigger" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="scheduled"/>
+        <FIELD NAME="action" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="reset" COMMENT="reset or warned"/>
+        <FIELD NAME="depth" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT=""/>
+        <FIELD NAME="triggertype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="scheduled" COMMENT="scheduled or manual"/>
+        <FIELD NAME="resettime" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" COMMENT="Cycle boundary this row belongs to, used for idempotency"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
       </FIELDS>
       <KEYS>
@@ -45,6 +47,7 @@
       </KEYS>
       <INDEXES>
         <INDEX NAME="idx_user_course" UNIQUE="false" FIELDS="userid, courseid"/>
+        <INDEX NAME="idx_cycle" UNIQUE="false" FIELDS="userid, courseid, action, resettime"/>
       </INDEXES>
     </TABLE>
   </TABLES>
