@@ -29,18 +29,31 @@
  * @return bool
  */
 function xmldb_local_recertify_upgrade(int $oldversion): bool {
-    global $DB;
+    global $CFG, $DB;
 
     $dbman = $DB->get_manager();
+    $installfile = $CFG->dirroot . '/local/recertify/db/install.xml';
 
-    if ($oldversion < 2026082900) {
+    if ($oldversion < 2026082902) {
+        // A site can reach an upgrade with one of the plugin's tables missing: a partial
+        // uninstall, a restore from a dump that excluded them, or an install that failed
+        // after the version was recorded. Recreate anything absent from install.xml first,
+        // because field_exists() throws ddl_table_missing_exception on a missing table.
+        foreach (['local_recertify_schedule', 'local_recertify_log'] as $tablename) {
+            if (!$dbman->table_exists(new xmldb_table($tablename))) {
+                $dbman->install_one_table_from_xmldb_file($installfile, $tablename);
+            }
+        }
+
+        // Anything created just now already carries the current schema, so the migrations
+        // below are all guarded and simply no-op in that case.
         $table = new xmldb_table('local_recertify_log');
 
         // The old column was named "trigger", a reserved word in MySQL and MariaDB, so
         // every insert against this table failed with a syntax error. The table is
         // therefore expected to be empty, but the rename preserves anything that is there.
         $oldfield = new xmldb_field('trigger', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, 'scheduled', 'depth');
-        if ($dbman->field_exists($table, $oldfield)) {
+        if ($dbman->field_exists($table, $oldfield) && !$dbman->field_exists($table, 'triggertype')) {
             $dbman->rename_field($table, $oldfield, 'triggertype');
         }
 
@@ -66,7 +79,7 @@ function xmldb_local_recertify_upgrade(int $oldversion): bool {
             $dbman->add_index($table, $index);
         }
 
-        upgrade_plugin_savepoint(true, 2026082900, 'local', 'recertify');
+        upgrade_plugin_savepoint(true, 2026082902, 'local', 'recertify');
     }
 
     return true;

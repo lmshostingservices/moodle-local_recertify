@@ -2,6 +2,20 @@
 
 All notable changes to `local_recertify` are documented here.
 
+## [1.1.1] - 2026-08-30
+
+### Fixed
+
+- **The upgrade aborted with "Table does not exist" on any site missing one of the
+  plugin's tables.** The upgrade step called `field_exists()` directly, and that method
+  throws `ddl_table_missing_exception` when the table itself is absent — which happens
+  after a partial uninstall, a restore from a dump that excluded the tables, or an
+  install that recorded its version but did not finish. The upgrade now recreates any
+  missing table from `install.xml` before touching columns, and every migration below it
+  is individually guarded, so it is safe to re-run.
+- The `trigger` to `triggertype` rename is now skipped when `triggertype` already
+  exists, so a partially applied upgrade can be resumed rather than failing.
+
 ## [1.1.0] - 2026-08-29
 
 ### Added
