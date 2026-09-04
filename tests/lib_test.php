@@ -162,6 +162,72 @@ final class lib_test extends \advanced_testcase {
     }
 
     /**
+     * A completion schedule wipes the record once the retention period has elapsed.
+     */
+    public function test_completion_schedule_becomes_due(): void {
+        $now = mktime(12, 0, 0, 8, 29, 2026);
+        $timestart = mktime(12, 0, 0, 1, 15, 2026);
+        $timecompleted = mktime(12, 0, 0, 5, 1, 2026);
+
+        $schedule = $this->schedule(['scheduletype' => 'completion', 'intervalmonths' => 3]);
+
+        $due = local_recertify_last_due_reset_time($schedule, $timestart, $now, $timecompleted);
+        $this->assertSame('2026-08-01', date('Y-m-d', $due));
+
+        // The boundary has passed, so there is no upcoming one to warn about.
+        $this->assertSame(0, local_recertify_next_reset_time($schedule, $timestart, $now, $timecompleted));
+    }
+
+    /**
+     * A learner still inside the retention period is warned about, not reset.
+     */
+    public function test_completion_schedule_within_retention(): void {
+        $now = mktime(12, 0, 0, 8, 29, 2026);
+        $timestart = mktime(12, 0, 0, 1, 15, 2026);
+        $timecompleted = mktime(12, 0, 0, 7, 1, 2026);
+
+        $schedule = $this->schedule(['scheduletype' => 'completion', 'intervalmonths' => 3]);
+
+        $this->assertSame(0, local_recertify_last_due_reset_time($schedule, $timestart, $now, $timecompleted));
+
+        $next = local_recertify_next_reset_time($schedule, $timestart, $now, $timecompleted);
+        $this->assertGreaterThan($now, $next);
+        $this->assertSame('2026-10-01', date('Y-m-d', $next));
+    }
+
+    /**
+     * A learner who has never completed the course is left alone entirely.
+     *
+     * The enrolment date must not be used as a fallback anchor here: there is no
+     * completed record to retain, so nothing should be wiped.
+     */
+    public function test_completion_schedule_ignores_non_completers(): void {
+        $now = mktime(12, 0, 0, 8, 29, 2026);
+        $timestart = mktime(12, 0, 0, 1, 1, 2015);
+
+        $schedule = $this->schedule(['scheduletype' => 'completion', 'intervalmonths' => 3]);
+
+        $this->assertSame(0, local_recertify_last_due_reset_time($schedule, $timestart, $now, 0));
+        $this->assertSame(0, local_recertify_next_reset_time($schedule, $timestart, $now, 0));
+    }
+
+    /**
+     * A completion schedule with a zero interval is clamped rather than firing instantly.
+     */
+    public function test_completion_schedule_clamps_zero_interval(): void {
+        $now = mktime(12, 0, 0, 8, 29, 2026);
+        $timecompleted = mktime(12, 0, 0, 8, 20, 2026);
+
+        $schedule = $this->schedule(['scheduletype' => 'completion', 'intervalmonths' => 0]);
+
+        // Clamped to one month, so a learner who completed nine days ago is not yet due.
+        $this->assertSame(0, local_recertify_last_due_reset_time($schedule, 0, $now, $timecompleted));
+
+        $next = local_recertify_next_reset_time($schedule, 0, $now, $timecompleted);
+        $this->assertSame('2026-09-20', date('Y-m-d', $next));
+    }
+
+    /**
      * A malformed fixed date falls back to 1 January rather than producing a bad timestamp.
      */
     public function test_fixeddate_parsing(): void {
@@ -218,6 +284,70 @@ final class lib_test extends \advanced_testcase {
 
         $schedule = $this->schedule(['courseid' => $course->id, 'resetdepth' => 'completion']);
         local_recertify_reset_user((int)$user->id, (int)$course->id, $schedule);
+
+        $this->assertFalse($DB->record_exists('course_completions', [
+            'userid' => $user->id,
+            'course' => $course->id,
+        ]));
+    }
+
+    /**
+     * A grades-depth reset clears both the grades and the completion record.
+     *
+     * The completion record is deleted after the grade work rather than before it,
+     * because it is the anchor a completion-anchored schedule measures from and the task
+     * retries a failed reset by re-deriving that anchor. This checks the reordering did
+     * not leave the record behind.
+     */
+    public function test_reset_user_grades_depth(): void {
+        global $DB, $CFG;
+
+        require_once($CFG->libdir . '/gradelib.php');
+
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $user = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($user->id, $course->id, 'student');
+
+        $DB->insert_record('course_completions', (object)[
+            'userid' => $user->id,
+            'course' => $course->id,
+            'timeenrolled' => time(),
+            'timestarted' => time(),
+            'timecompleted' => time(),
+        ]);
+
+        $itemid = $DB->insert_record('grade_items', (object)[
+            'courseid' => $course->id,
+            'itemtype' => 'manual',
+            'itemname' => 'Recertification test item',
+            'gradetype' => GRADE_TYPE_VALUE,
+            'grademax' => 100,
+            'grademin' => 0,
+            'timecreated' => time(),
+            'timemodified' => time(),
+        ]);
+        $DB->insert_record('grade_grades', (object)[
+            'itemid' => $itemid,
+            'userid' => $user->id,
+            'rawgrade' => 80,
+            'finalgrade' => 80,
+            'timecreated' => time(),
+            'timemodified' => time(),
+        ]);
+
+        $schedule = $this->schedule(['courseid' => $course->id, 'resetdepth' => 'grades']);
+        local_recertify_reset_user((int)$user->id, (int)$course->id, $schedule);
+
+        // The regrade that follows the delete can recreate empty rows for course totals,
+        // so this asserts that no actual grade survives rather than that no row does.
+        $remaining = $DB->get_field_sql(
+            "SELECT COUNT(1)
+               FROM {grade_grades} gg
+               JOIN {grade_items} gi ON gi.id = gg.itemid
+              WHERE gi.courseid = :cid AND gg.userid = :uid AND gg.finalgrade IS NOT NULL",
+            ['cid' => $course->id, 'uid' => $user->id]
+        );
+        $this->assertEquals(0, $remaining);
 
         $this->assertFalse($DB->record_exists('course_completions', [
             'userid' => $user->id,

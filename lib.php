@@ -83,10 +83,35 @@ function local_recertify_interval_months(stdClass $schedule): int {
  * @param stdClass $schedule The schedule record.
  * @param int      $timestart The learner's enrolment start timestamp.
  * @param int|null $now Current time, for testing.
- * @return int Unix timestamp of the next reset.
+ * @param int      $timecompleted The learner's course completion timestamp, 0 if not completed.
+ * @return int Unix timestamp of the next reset, or 0 if none is scheduled.
  */
-function local_recertify_next_reset_time(stdClass $schedule, int $timestart, ?int $now = null): int {
+function local_recertify_next_reset_time(
+    stdClass $schedule,
+    int $timestart,
+    ?int $now = null,
+    int $timecompleted = 0
+): int {
     $now = $now ?? time();
+
+    if ($schedule->scheduletype === 'completion') {
+        // The clock only starts once the learner has completed the course, so a learner
+        // who has never completed it has no upcoming reset at all.
+        if ($timecompleted <= 0) {
+            return 0;
+        }
+
+        $months = local_recertify_interval_months($schedule);
+        $due = strtotime("+{$months} months", $timecompleted);
+        if ($due === false) {
+            return 0;
+        }
+
+        // Unlike the other two types this boundary does not repeat on its own: once it
+        // has passed the reset is due, and the next one is not known until the learner
+        // completes the course again.
+        return $due > $now ? $due : 0;
+    }
 
     if ($schedule->scheduletype === 'fixed') {
         [$month, $day] = local_recertify_parse_fixeddate($schedule->fixeddate);
@@ -121,10 +146,35 @@ function local_recertify_next_reset_time(stdClass $schedule, int $timestart, ?in
  * @param stdClass $schedule The schedule record.
  * @param int      $timestart The learner's enrolment start timestamp.
  * @param int|null $now Current time, for testing.
+ * @param int      $timecompleted The learner's course completion timestamp, 0 if not completed.
  * @return int Unix timestamp of the last due reset, or 0 if none is due yet.
  */
-function local_recertify_last_due_reset_time(stdClass $schedule, int $timestart, ?int $now = null): int {
+function local_recertify_last_due_reset_time(
+    stdClass $schedule,
+    int $timestart,
+    ?int $now = null,
+    int $timecompleted = 0
+): int {
     $now = $now ?? time();
+
+    if ($schedule->scheduletype === 'completion') {
+        // Measured from the learner's own course completion date. A learner who has not
+        // completed the course has no history to wipe and is left alone.
+        if ($timecompleted <= 0) {
+            return 0;
+        }
+
+        $months = local_recertify_interval_months($schedule);
+        $due = strtotime("+{$months} months", $timecompleted);
+        if ($due === false || $due > $now) {
+            return 0;
+        }
+
+        // The reset clears the completion record, which is the anchor for this schedule
+        // type, so the learner drops out of scope until they complete the course again.
+        // That is what makes the cycle repeat without a date walk.
+        return $due;
+    }
 
     if ($schedule->scheduletype === 'fixed') {
         [$month, $day] = local_recertify_parse_fixeddate($schedule->fixeddate);
@@ -211,6 +261,44 @@ function local_recertify_reset_user(int $userid, int $courseid, stdClass $schedu
         );
     }
 
+    // Grades. Remove the learner's grades for every grade item in this course.
+    if ($schedule->resetdepth !== 'completion') {
+        $DB->delete_records_select(
+            'grade_grades',
+            'userid = :uid AND itemid IN (SELECT id FROM {grade_items} WHERE courseid = :cid)',
+            ['uid' => $userid, 'cid' => $courseid]
+        );
+
+        // The gradebook is flagged for recalculation rather than regraded inline.
+        //
+        // grade_regrade_final_grades($courseid, $userid) was called here previously, and
+        // core rejects that: the third argument, the single grade item whose raw grade
+        // changed, is mandatory whenever a user id is given, so the call threw
+        // "updated_item cannot be null!" on every grades-depth and full-depth reset.
+        // There is no single such item to name here in any case, because the delete
+        // above spans every grade item in the course.
+        //
+        // Flagging is also the cheaper half of the fix. The learner's rows are gone from
+        // the category and course totals as well as the leaf items, so nothing of theirs
+        // is left to recompute, and a course with a thousand learners falling due on the
+        // same day no longer means a thousand inline full-course regrades.
+        $courseitem = grade_item::fetch_course_item($courseid);
+        if ($courseitem) {
+            $courseitem->force_regrading();
+        }
+    }
+
+    // The course completion records are deleted last, deliberately, for two reasons.
+    //
+    // course_completions is the anchor a 'completion' schedule measures from, and the
+    // task's failure path deletes its cycle marker so the learner is retried on the next
+    // run. Removing this row before the grade work above would break that: a throw from
+    // the regrade would leave the learner with no completion record, hence no anchor, so
+    // the retry would find nothing due and the partial reset would never be finished.
+    //
+    // The regrade also fires grading events, and the criteria review those events
+    // trigger can write completion rows back. Clearing both tables afterwards means the
+    // learner does not come out of the reset still marked complete.
     $DB->delete_records('course_completion_crit_compl', ['userid' => $userid, 'course' => $courseid]);
     $DB->delete_records('course_completions', ['userid' => $userid, 'course' => $courseid]);
 
@@ -219,18 +307,6 @@ function local_recertify_reset_user(int $userid, int $courseid, stdClass $schedu
     $cachekey = $userid . '_' . $courseid;
     cache::make('core', 'completion')->delete($cachekey);
     cache::make('core', 'coursecompletion')->delete($cachekey);
-
-    if ($schedule->resetdepth === 'completion') {
-        return;
-    }
-
-    // Grades. Remove the learner's grades for every grade item in this course.
-    $DB->delete_records_select(
-        'grade_grades',
-        'userid = :uid AND itemid IN (SELECT id FROM {grade_items} WHERE courseid = :cid)',
-        ['uid' => $userid, 'cid' => $courseid]
-    );
-    grade_regrade_final_grades($courseid, $userid);
 }
 
 /**
@@ -348,8 +424,11 @@ function local_recertify_wipe_activity_data(stdClass $user, stdClass $course, st
 /**
  * Log a recertification action to the audit table.
  *
- * The unique index on (userid, courseid, action, resettime) makes this idempotent:
- * a duplicate for the same cycle is silently ignored rather than raising an error.
+ * Idempotency comes from the lookup below, not from a database constraint: the index on
+ * (userid, courseid, action, resettime) is deliberately not unique, because rows written
+ * before that column existed all carry resettime 0 and a unique index could fail to build
+ * on an existing site. A duplicate for the same cycle is reported by the return value
+ * rather than raising an error. Concurrent runs are prevented by the scheduled task lock.
  *
  * @param int    $scheduleid The schedule id.
  * @param int    $courseid The course id.

@@ -61,6 +61,7 @@ if ($hassiteconfig) {
         [
             'relative' => get_string('scheduletype_relative', 'local_recertify'),
             'fixed' => get_string('scheduletype_fixed', 'local_recertify'),
+            'completion' => get_string('scheduletype_completion', 'local_recertify'),
         ]
     ));
 

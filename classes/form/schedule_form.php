@@ -75,13 +75,18 @@ class schedule_form extends \moodleform {
         $mform->addElement('select', 'scheduletype', get_string('scheduletype', 'local_recertify'), [
             'relative' => get_string('scheduletype_relative', 'local_recertify'),
             'fixed' => get_string('scheduletype_fixed', 'local_recertify'),
+            'completion' => get_string('scheduletype_completion', 'local_recertify'),
         ]);
         $mform->addHelpButton('scheduletype', 'scheduletype', 'local_recertify');
 
         $mform->addElement('text', 'intervalmonths', get_string('intervalmonths', 'local_recertify'), ['size' => 5]);
         $mform->setType('intervalmonths', PARAM_INT);
         $mform->addHelpButton('intervalmonths', 'intervalmonths', 'local_recertify');
-        $mform->hideIf('intervalmonths', 'scheduletype', 'neq', 'relative');
+        // The interval applies to both the relative and the completion types, so this is
+        // written as a single "hide on fixed" condition. Two "neq" conditions would not
+        // work: multiple hideIf rules on one element are OR-ed, so the element would be
+        // hidden for every schedule type.
+        $mform->hideIf('intervalmonths', 'scheduletype', 'eq', 'fixed');
 
         $mform->addElement('text', 'fixeddate', get_string('fixeddate', 'local_recertify'), ['size' => 8]);
         $mform->setType('fixeddate', PARAM_TEXT);
@@ -141,7 +146,7 @@ class schedule_form extends \moodleform {
 
         $errors = parent::validation($data, $files);
 
-        if ($data['scheduletype'] === 'relative') {
+        if (in_array($data['scheduletype'], ['relative', 'completion'], true)) {
             // A zero or negative interval would mean "reset every no months", which is
             // meaningless and previously caused the scheduler to loop forever.
             if ((int)$data['intervalmonths'] < 1) {

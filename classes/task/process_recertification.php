@@ -62,10 +62,15 @@ class process_recertification extends scheduled_task {
                 continue;
             }
 
-            $sql = "SELECT ue.id, ue.userid, ue.timestart, ue.timecreated
+            // course_completions is joined for the 'completion' schedule type, which
+            // measures from the learner's own completion date. At most one row exists per
+            // user and course, so the join cannot multiply enrolment rows.
+            $sql = "SELECT ue.id, ue.userid, ue.timestart, ue.timecreated, cc.timecompleted
                       FROM {user_enrolments} ue
                       JOIN {enrol} e ON e.id = ue.enrolid
                       JOIN {user} u ON u.id = ue.userid
+                 LEFT JOIN {course_completions} cc
+                        ON cc.userid = ue.userid AND cc.course = e.courseid
                      WHERE e.courseid = :cid
                        AND ue.status = :active
                        AND u.deleted = 0
@@ -78,9 +83,13 @@ class process_recertification extends scheduled_task {
                 // the enrolment record itself was made, so relative schedules still work.
                 $timestart = (int)$ue->timestart ?: (int)$ue->timecreated;
 
+                // Null for a learner with no completion record, and also for one whose
+                // record exists but is still in progress.
+                $timecompleted = (int)($ue->timecompleted ?? 0);
+
                 // Is a reset due? This is the most recent cycle boundary already passed,
                 // never a future date, so the comparison can actually succeed.
-                $duetime = local_recertify_last_due_reset_time($schedule, $timestart, $now);
+                $duetime = local_recertify_last_due_reset_time($schedule, $timestart, $now, $timecompleted);
                 if ($duetime > 0) {
                     // The log row doubles as the idempotency record for this cycle.
                     $written = local_recertify_log(
@@ -118,10 +127,14 @@ class process_recertification extends scheduled_task {
                 // Advance warning for the next upcoming cycle.
                 $warningdays = (int)$schedule->warningdays;
                 if ($warningdays > 0) {
-                    $nexttime = local_recertify_next_reset_time($schedule, $timestart, $now);
+                    // Zero means no reset is scheduled for this learner at all, which a
+                    // completion-anchored schedule returns for anyone who has not
+                    // completed the course. Without this guard the window arithmetic
+                    // below would run against a boundary of 1970.
+                    $nexttime = local_recertify_next_reset_time($schedule, $timestart, $now, $timecompleted);
                     $warnfrom = $nexttime - ($warningdays * DAYSECS);
 
-                    if ($now >= $warnfrom && $now < $nexttime) {
+                    if ($nexttime > 0 && $now >= $warnfrom && $now < $nexttime) {
                         // Keyed on the cycle, so one warning per learner per cycle rather
                         // than one on every cron run for the whole warning window.
                         $written = local_recertify_log(

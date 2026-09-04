@@ -50,6 +50,12 @@ class provider implements
             'courseid'    => 'privacy:metadata:local_recertify_log:courseid',
             'timecreated' => 'privacy:metadata:local_recertify_log:timecreated',
             'depth'       => 'privacy:metadata:local_recertify_log:depth',
+            // export_user_data() exports whole log records, so every exported column has
+            // to be declared here, not just the four that used to be listed.
+            'action'      => 'privacy:metadata:local_recertify_log:action',
+            'triggertype' => 'privacy:metadata:local_recertify_log:triggertype',
+            'resettime'   => 'privacy:metadata:local_recertify_log:resettime',
+            'scheduleid'  => 'privacy:metadata:local_recertify_log:scheduleid',
         ], 'privacy:metadata:local_recertify_log');
         return $collection;
     }

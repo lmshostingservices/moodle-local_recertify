@@ -66,7 +66,9 @@ if ($data = $mform->get_data()) {
     $record = (object)[
         'courseid' => (int)$data->courseid,
         'enabled' => (int)$data->enabled,
-        'scheduletype' => $data->scheduletype === 'fixed' ? 'fixed' : 'relative',
+        'scheduletype' => in_array($data->scheduletype, ['relative', 'fixed', 'completion'], true)
+            ? $data->scheduletype
+            : 'relative',
         'intervalmonths' => max(1, (int)$data->intervalmonths),
         'fixeddate' => trim((string)$data->fixeddate),
         'warningdays' => max(0, (int)$data->warningdays),

@@ -108,9 +108,16 @@ if (!$schedules) {
     foreach ($schedules as $s) {
         $course = $DB->get_record('course', ['id' => $s->courseid], 'id, fullname');
 
-        $interval = $s->scheduletype === 'fixed'
-            ? s($s->fixeddate)
-            : get_string('everynmonths', 'local_recertify', local_recertify_interval_months($s));
+        $months = local_recertify_interval_months($s);
+        if ($s->scheduletype === 'fixed') {
+            $interval = s($s->fixeddate);
+        } else if ($s->scheduletype === 'completion') {
+            $interval = $months === 1
+                ? get_string('monthaftercompletion', 'local_recertify')
+                : get_string('monthsaftercompletion', 'local_recertify', $months);
+        } else {
+            $interval = get_string('everynmonths', 'local_recertify', $months);
+        }
 
         $editurl = new moodle_url('/local/recertify/edit.php', ['id' => $s->id]);
         $delurl = new moodle_url($baseurl, ['action' => 'delete', 'id' => $s->id, 'sesskey' => sesskey()]);

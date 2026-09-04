@@ -1,24 +1,25 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/recertify/db" VERSION="20260829" COMMENT="XMLDB file for local_recertify"
+<XMLDB PATH="local/recertify/db" VERSION="20260904" COMMENT="XMLDB file for local_recertify"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
   <TABLES>
     <TABLE NAME="local_recertify_schedule" COMMENT="Per-course recertification schedule configuration">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
-        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true"/>
-        <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1"/>
-        <FIELD NAME="scheduletype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="relative"/>
-        <FIELD NAME="intervalmonths" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="12"/>
-        <FIELD NAME="fixeddate" TYPE="char" LENGTH="5" NOTNULL="false" COMMENT="MM-DD for fixed schedule"/>
-        <FIELD NAME="warningdays" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="14"/>
-        <FIELD NAME="resetdepth" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="completion"/>
-        <FIELD NAME="wipeassignments" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0"/>
-        <FIELD NAME="wipequizattempts" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0"/>
-        <FIELD NAME="wipescormtracks" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0"/>
-        <FIELD NAME="notifyonreset" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1"/>
-        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
-        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+        <FIELD NAME="scheduletype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="relative" SEQUENCE="false"/>
+        <FIELD NAME="intervalmonths" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="12" SEQUENCE="false"/>
+        <FIELD NAME="fixeddate" TYPE="char" LENGTH="5" NOTNULL="false" SEQUENCE="false" COMMENT="MM-DD for fixed schedule"/>
+        <FIELD NAME="warningdays" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="14" SEQUENCE="false"/>
+        <FIELD NAME="resetdepth" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="completion" SEQUENCE="false"/>
+        <FIELD NAME="wipeassignments" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="wipequizattempts" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="wipescormtracks" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="notifyonreset" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -31,14 +32,14 @@
     <TABLE NAME="local_recertify_log" COMMENT="Audit log of all recertification resets and warnings">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
-        <FIELD NAME="scheduleid" TYPE="int" LENGTH="10" NOTNULL="true"/>
-        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true"/>
-        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true"/>
-        <FIELD NAME="action" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="reset" COMMENT="reset or warned"/>
-        <FIELD NAME="depth" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT=""/>
-        <FIELD NAME="triggertype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="scheduled" COMMENT="scheduled or manual"/>
-        <FIELD NAME="resettime" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" COMMENT="Cycle boundary this row belongs to, used for idempotency"/>
-        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="scheduleid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="action" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="reset" SEQUENCE="false" COMMENT="reset or warned"/>
+        <FIELD NAME="depth" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="triggertype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="scheduled" SEQUENCE="false" COMMENT="scheduled or manual"/>
+        <FIELD NAME="resettime" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Cycle boundary this row belongs to, used for idempotency"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
