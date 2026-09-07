@@ -2,6 +2,23 @@
 
 All notable changes to `local_recertify` are documented here.
 
+## [1.2.1] - 2026-09-07
+
+### Changed
+
+- **Version bump only — no functional change from 1.2.0.** The 1.2.0 code was already
+  published to `lmshostingservices/moodle-local_recertify`, and release tags there are
+  immutable, so the release pipeline could not re-cut `v1.2.0`. This release exists to
+  give the pipeline a fresh tag.
+- It also lands this code in `lms-labs/moodle-plugin/local_recertify`, which was still
+  carrying **1.0.1** — the release that never performed a reset and shipped without
+  `edit.php`. Because the plugin-sync workflow rebuilds each standalone repo from the
+  monorepo (it deletes the checkout and copies the monorepo directory over it), leaving
+  the monorepo on 1.0.1 meant the next change to that directory would have overwritten
+  the published 1.2.0 with the non-functional version.
+
+Everything in 1.2.0 below is unchanged and still applies.
+
 ## [1.2.0] - 2026-09-04
 
 ### Added
