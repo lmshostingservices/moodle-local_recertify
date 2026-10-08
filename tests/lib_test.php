@@ -62,6 +62,7 @@ final class lib_test extends \advanced_testcase {
             'wipequizattempts' => 0,
             'wipescormtracks' => 0,
             'notifyonreset' => 1,
+            'activityscope' => 'all',
         ];
 
         return (object)array_merge($defaults, $overrides);

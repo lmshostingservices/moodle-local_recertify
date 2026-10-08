@@ -25,6 +25,12 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['action'] = 'Action';
+$string['activitynotracking'] = '(completion tracking off)';
+$string['activityscope'] = 'Activities to reset';
+$string['activityscope_all'] = 'All activities in the course';
+$string['activityscope_createnotice'] = 'All activities in the course. Save this schedule, then edit it to limit the reset to particular activities.';
+$string['activityscope_help'] = '"All activities" clears every activity in the course, which is how recertification has always worked. "Only the selected activities" clears just the ones you tick, leaving the rest of the learner\'s progress alone - useful when a course contains something that should not be wiped, such as an induction module. The schedule and its timing are unchanged either way; this only narrows what the reset touches.';
+$string['activityscope_selected'] = 'Only the selected activities';
 $string['addschedule'] = 'Add recertification schedule';
 $string['auditlog'] = 'Audit log';
 $string['courseid'] = 'Course ID';
@@ -40,6 +46,7 @@ $string['errorduplicatecourse'] = 'This course already has a recertification sch
 $string['errorfixeddate'] = 'Enter a valid date as MM-DD, for example 07-01 for 1 July.';
 $string['errorintervalmonths'] = 'The interval must be at least one month.';
 $string['errorintervaltoolarge'] = 'The interval must be 600 months or fewer.';
+$string['errornoactivities'] = 'Select at least one activity, or set this back to all activities in the course.';
 $string['errorwarningdays'] = 'Warning days must be between 0 and 365.';
 $string['everynmonths'] = 'Every {$a} months';
 $string['exportauditlog'] = 'Export audit log (CSV)';
@@ -53,6 +60,7 @@ $string['log_warned'] = 'Warning sent';
 $string['managerecertify'] = 'Manage course recertification';
 $string['monthaftercompletion'] = '1 month after completion';
 $string['monthsaftercompletion'] = '{$a} months after completion';
+$string['noactivities'] = 'This course has no activities to select.';
 $string['nologentries'] = 'Nothing has been logged yet.';
 $string['noschedules'] = 'No recertification schedules have been created yet.';
 $string['notifyonreset'] = 'Notify the learner when their progress is reset';
@@ -91,6 +99,11 @@ $string['scheduletype_completion'] = 'A set time after course completion';
 $string['scheduletype_fixed'] = 'Fixed date each year';
 $string['scheduletype_help'] = 'A relative schedule resets each learner on the anniversary of their own enrolment. A fixed schedule resets everyone in the course on the same calendar date each year. A completion schedule waits a set number of months after each learner finishes the course and then wipes their record, so the clock starts when they complete rather than when they enrol; learners who have not completed the course are left alone.';
 $string['scheduletype_relative'] = 'Relative to enrolment date';
+$string['scopedactivities'] = 'Limited to {$a} activities';
+$string['selectedactivities'] = 'Selected activities';
+$string['selectedactivities_help'] = 'Only these activities are cleared when the reset runs. Every activity in the course is listed, including those with completion tracking switched off, because an untracked activity can still hold attempts, submissions and grades. The reset depth and the deletion options above still apply, and still only to the activities selected here.
+
+Course completion is revoked only when one of the selected activities is a completion criterion for the course. If none of them gates course completion, the learner keeps their course completion record and their certificate.';
 $string['taskprocess'] = 'Course Recertification: process resets';
 $string['trigger'] = 'Triggered by';
 $string['userid'] = 'User ID';

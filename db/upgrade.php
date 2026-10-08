@@ -82,5 +82,23 @@ function xmldb_local_recertify_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026082902, 'local', 'recertify');
     }
 
+    if ($oldversion < 2026100700) {
+        // Limiting a reset to selected activities. Both additions are guarded, and the
+        // default keeps every existing schedule on its current whole-course behaviour.
+        $table = new xmldb_table('local_recertify_schedule');
+        $scope = new xmldb_field('activityscope', XMLDB_TYPE_CHAR, '10', null, XMLDB_NOTNULL, null, 'all', 'resetdepth');
+        if (!$dbman->field_exists($table, $scope)) {
+            $dbman->add_field($table, $scope);
+        }
+
+        // The activities a scoped schedule is limited to. Created from install.xml so the
+        // table matches the shipped definition exactly rather than a hand-built copy.
+        if (!$dbman->table_exists(new xmldb_table('local_recertify_schedule_cm'))) {
+            $dbman->install_one_table_from_xmldb_file($installfile, 'local_recertify_schedule_cm');
+        }
+
+        upgrade_plugin_savepoint(true, 2026100700, 'local', 'recertify');
+    }
+
     return true;
 }

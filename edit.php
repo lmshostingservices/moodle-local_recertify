@@ -43,7 +43,16 @@ if ($id) {
     $course = $DB->get_record('course', ['id' => $schedule->courseid], 'id, fullname');
     $customdata['id'] = $id;
     $customdata['coursename'] = $course ? format_string($course->fullname) : (string)$schedule->courseid;
+    $customdata['activities'] = local_recertify_activity_options((int)$schedule->courseid);
     $heading = get_string('editschedule', 'local_recertify');
+
+    // Pre-tick the activities already selected.
+    $schedule->cmids = $DB->get_fieldset_select(
+        'local_recertify_schedule_cm',
+        'cmid',
+        'scheduleid = :sid',
+        ['sid' => $schedule->id]
+    );
 } else {
     // Seed a new schedule from the site-wide defaults so the settings page is meaningful.
     $schedule = local_recertify_get_defaults();
@@ -79,6 +88,7 @@ if ($data = $mform->get_data()) {
         'wipequizattempts' => (int)$data->wipequizattempts,
         'wipescormtracks' => (int)$data->wipescormtracks,
         'notifyonreset' => (int)$data->notifyonreset,
+        'activityscope' => (($data->activityscope ?? 'all') === 'selected') ? 'selected' : 'all',
         'timemodified' => time(),
     ];
 
@@ -87,6 +97,23 @@ if ($data = $mform->get_data()) {
         $record->wipeassignments = 0;
         $record->wipequizattempts = 0;
         $record->wipescormtracks = 0;
+    }
+
+    // Keep only ids that are really activities in this schedule's course, so a tampered
+    // form cannot attach another course's modules to the schedule.
+    $selectedcmids = [];
+    if ($record->activityscope === 'selected' && !empty($data->cmids)) {
+        $courseidforcms = !empty($data->id)
+            ? (int)$DB->get_field('local_recertify_schedule', 'courseid', ['id' => $data->id])
+            : (int)$record->courseid;
+        foreach ((array)$data->cmids as $cmid) {
+            if ($DB->record_exists('course_modules', ['id' => (int)$cmid, 'course' => $courseidforcms])) {
+                $selectedcmids[] = (int)$cmid;
+            }
+        }
+    }
+    if (!$selectedcmids) {
+        $record->activityscope = 'all';
     }
 
     if (!empty($data->id)) {
@@ -102,8 +129,19 @@ if ($data = $mform->get_data()) {
             throw new moodle_exception('invalidcourseid', 'error');
         }
         $record->timecreated = time();
-        $DB->insert_record('local_recertify_schedule', $record);
+        $record->id = $DB->insert_record('local_recertify_schedule', $record);
         $message = get_string('schedulecreated', 'local_recertify');
+    }
+
+    // Replace the activity selection wholesale - simpler than diffing, and the table is
+    // tiny. Rows are always cleared, so switching back to whole-course scope leaves no
+    // stale selection behind to surprise whoever edits the schedule next.
+    $DB->delete_records('local_recertify_schedule_cm', ['scheduleid' => $record->id]);
+    foreach ($selectedcmids as $cmid) {
+        $DB->insert_record('local_recertify_schedule_cm', (object)[
+            'scheduleid' => $record->id,
+            'cmid' => $cmid,
+        ]);
     }
 
     redirect($returnurl, $message, null, \core\output\notification::NOTIFY_SUCCESS);

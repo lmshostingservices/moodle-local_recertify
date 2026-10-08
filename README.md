@@ -6,6 +6,7 @@ A local plugin for Moodle that resets activity completion, course completion and
 
 - **Per-course schedules** — each course gets its own schedule, created and edited from Site administration → Plugins → Local plugins → Course Recertification
 - **Three schedule types** — relative to each learner's own enrolment date, a fixed calendar date each year for everyone in the course, or a retention period measured from each learner's own course completion date ("wipe their record 3 months after they finish")
+- **Reset whole course or selected activities** — a schedule normally clears every activity in its course, or you can limit it to activities you pick, leaving the rest of the learner's progress alone
 - **Three reset depths** — completion only, completion and grades, or a full wipe that also removes quiz attempts, assignment submissions and SCORM tracking
 - **Advance warning** — learners are notified a configurable number of days before their reset, exactly once per cycle
 - **Reset notification** — an optional message at the moment the reset happens
@@ -42,6 +43,31 @@ The cycle repeats without any date arithmetic. The reset clears the course compl
 Advance warnings work as they do for the other types: a learner on a three-month retention with a 14-day warning window is notified once, two weeks before their record is due to be wiped.
 
 > **Choose your reset depth carefully with this schedule type.** At *Completion only* depth the underlying attempts and grades survive the wipe, and Moodle's own completion aggregation may then re-satisfy the course criteria from that surviving data and mark the learner complete again — which restarts the retention clock instead of requiring them to re-certify. If the intent is that the learner must actually do the course again, use *Completion and grades* or a *full* wipe.
+
+## Limiting a reset to selected activities
+
+By default a schedule clears every activity in its course. Setting **Activities to reset**
+to *Only the selected activities* narrows it to the ones you tick — useful when a course
+contains something that should survive recertification, such as an induction module.
+
+This changes *what* a reset clears, not *when* it runs. The schedule is still one per
+course with one clock.
+
+- Activity completion, viewed flags, grades and the quiz/assignment/SCORM wipes are all
+  restricted to the selected activities. The per-type deletion checkboxes still apply on
+  top: a selected quiz loses its attempts only if *Delete quiz attempts* is also ticked.
+- Every activity is listed, including those with completion tracking switched off, because
+  an untracked activity can still hold attempts and grades worth clearing.
+- The picker appears when you **edit** a schedule. A new schedule has no course chosen
+  while its form is built, so create it first and narrow it on the next screen.
+
+> **Course completion.** A scoped reset revokes the learner's course completion only when
+> one of the selected activities is a completion criterion for the course. Moodle has no
+> way to un-complete a course, so leaving the record alone would mean the learner stays
+> course-complete — and keeps a valid certificate — while a required activity sits
+> incomplete. Revoking it every time would be equally wrong: clearing an activity that
+> never gated completion would reset their completion date and trigger a fresh
+> certificate for no reason.
 
 ## Reset depths
 

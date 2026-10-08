@@ -133,6 +133,16 @@ if (!$schedules) {
             . ' '
             . html_writer::link($delurl, get_string('delete'), ['class' => 'btn btn-sm btn-outline-danger']);
 
+        $depthlabel = get_string('resetdepth_' . $s->resetdepth, 'local_recertify');
+        if (($s->activityscope ?? 'all') === 'selected') {
+            $selectedcount = $DB->count_records('local_recertify_schedule_cm', ['scheduleid' => $s->id]);
+            $depthlabel .= html_writer::tag(
+                'div',
+                get_string('scopedactivities', 'local_recertify', $selectedcount),
+                ['class' => 'text-muted small']
+            );
+        }
+
         $table->data[] = [
             $course
                 ? html_writer::link(
@@ -142,7 +152,7 @@ if (!$schedules) {
                 : $s->courseid,
             get_string('scheduletype_' . $s->scheduletype, 'local_recertify'),
             $interval,
-            get_string('resetdepth_' . $s->resetdepth, 'local_recertify'),
+            $depthlabel,
             $s->enabled ? $OUTPUT->pix_icon('i/checked', get_string('yes')) : '',
             $actions,
         ];

@@ -74,6 +74,172 @@ function local_recertify_interval_months(stdClass $schedule): int {
 }
 
 /**
+ * Return the activities a schedule is limited to.
+ *
+ * The return type carries the distinction that matters: null means "the whole course",
+ * an array means "only these activities". An empty array is therefore not the same as
+ * null - it means the schedule is scoped but every activity it named has since been
+ * deleted, so there is nothing to reset. Collapsing the two would silently turn a
+ * narrow schedule into a whole-course wipe.
+ *
+ * Ids whose course module no longer exists, or has moved to another course, are dropped.
+ *
+ * @param stdClass $schedule The schedule record.
+ * @return array|null Course module ids, or null for the whole course.
+ */
+function local_recertify_get_scope_cmids(stdClass $schedule): ?array {
+    global $DB;
+
+    if (($schedule->activityscope ?? 'all') !== 'selected') {
+        return null;
+    }
+
+    if (empty($schedule->id)) {
+        return [];
+    }
+
+    $cmids = $DB->get_fieldset_select(
+        'local_recertify_schedule_cm',
+        'cmid',
+        'scheduleid = :sid',
+        ['sid' => $schedule->id]
+    );
+    if (!$cmids) {
+        return [];
+    }
+
+    // Drop activities that have been deleted from the course since they were selected.
+    [$insql, $params] = $DB->get_in_or_equal($cmids, SQL_PARAMS_NAMED, 'cm');
+    $params['cid'] = $schedule->courseid;
+
+    return array_map('intval', $DB->get_fieldset_sql(
+        "SELECT id FROM {course_modules} WHERE course = :cid AND id {$insql}",
+        $params
+    ));
+}
+
+/**
+ * Build the activity list for the schedule form, keyed by course module id.
+ *
+ * Every activity in the course is listed, not only those with completion tracking: an
+ * activity with tracking switched off can still hold attempts, submissions and grades
+ * that a reset is meant to clear. Each label carries its section and says whether
+ * completion tracking is on, so the choice is an informed one.
+ *
+ * @param int $courseid The course.
+ * @return array Course module id => label.
+ */
+function local_recertify_activity_options(int $courseid): array {
+    global $CFG;
+
+    // get_section_name() and the COMPLETION_* constants live in files Moodle does not
+    // load on every request, so neither can be assumed present just because the caller
+    // happens to be an admin page.
+    require_once($CFG->dirroot . '/course/lib.php');
+    require_once($CFG->libdir . '/completionlib.php');
+
+    $options = [];
+
+    try {
+        $modinfo = get_fast_modinfo($courseid);
+    } catch (Throwable $e) {
+        return $options;
+    }
+
+    $sections = $modinfo->get_section_info_all();
+
+    foreach ($modinfo->get_cms() as $cm) {
+        if (!$cm->uservisible && $cm->deletioninprogress) {
+            continue;
+        }
+
+        $sectionname = '';
+        if (isset($sections[$cm->sectionnum])) {
+            $sectionname = get_section_name($courseid, $sections[$cm->sectionnum]);
+        }
+
+        $label = ($sectionname !== '' ? $sectionname . ' / ' : '')
+            . $cm->get_module_type_name() . ': ' . format_string($cm->name);
+
+        if ($cm->completion == COMPLETION_TRACKING_NONE) {
+            $label .= ' ' . get_string('activitynotracking', 'local_recertify');
+        }
+
+        $options[$cm->id] = $label;
+    }
+
+    return $options;
+}
+
+/**
+ * Return the instance ids of one module type, restricted to a scope if there is one.
+ *
+ * @param int        $courseid The course.
+ * @param array|null $cmids Scope from local_recertify_get_scope_cmids(), null for all.
+ * @param string     $modname Module name, for example 'quiz'.
+ * @return array Instance ids.
+ */
+function local_recertify_module_instances(int $courseid, ?array $cmids, string $modname): array {
+    global $DB;
+
+    $params = ['cid' => $courseid, 'mod' => $modname];
+    $where = '';
+
+    if (is_array($cmids)) {
+        if (!$cmids) {
+            return [];
+        }
+        [$insql, $inparams] = $DB->get_in_or_equal($cmids, SQL_PARAMS_NAMED, 'cm');
+        $where = " AND cm.id {$insql}";
+        $params += $inparams;
+    }
+
+    return array_map('intval', $DB->get_fieldset_sql(
+        "SELECT cm.instance
+           FROM {course_modules} cm
+           JOIN {modules} m ON m.id = cm.module
+          WHERE cm.course = :cid AND m.name = :mod {$where}",
+        $params
+    ));
+}
+
+/**
+ * Whether any of the given activities is a completion criterion for the course.
+ *
+ * This decides whether a scoped reset also revokes the learner's course completion.
+ * Moodle has no way to un-complete a course, so leaving the record in place would mean
+ * the learner stays course-complete - and certified - while a required activity sits
+ * incomplete. Revoking it unconditionally would be worse in the other direction: an
+ * activity that never gated completion would reset someone's completion date, and with
+ * it their certificate, for no reason.
+ *
+ * @param int   $courseid The course.
+ * @param array $cmids Selected course module ids.
+ * @return bool True if at least one selected activity gates course completion.
+ */
+function local_recertify_scope_gates_course_completion(int $courseid, array $cmids): bool {
+    global $DB, $CFG;
+
+    require_once($CFG->libdir . '/completionlib.php');
+
+    if (!$cmids) {
+        return false;
+    }
+
+    [$insql, $params] = $DB->get_in_or_equal($cmids, SQL_PARAMS_NAMED, 'cm');
+    $params['cid'] = $courseid;
+    $params['ctype'] = COMPLETION_CRITERIA_TYPE_ACTIVITY;
+
+    // course_completion_criteria.moduleinstance holds a course_modules id for activity
+    // criteria, despite the name.
+    return $DB->record_exists_select(
+        'course_completion_criteria',
+        "course = :cid AND criteriatype = :ctype AND moduleinstance {$insql}",
+        $params
+    );
+}
+
+/**
  * Return the next reset timestamp in the future for a learner under a schedule.
  *
  * This is the date an advance warning is sent about. It is always in the future, so it
@@ -238,36 +404,87 @@ function local_recertify_reset_user(int $userid, int $courseid, stdClass $schedu
     $course = $DB->get_record('course', ['id' => $courseid], '*', MUST_EXIST);
     $user = $DB->get_record('user', ['id' => $userid], '*', MUST_EXIST);
 
+    // null for the whole course, or the activities this schedule is limited to.
+    $cmids = local_recertify_get_scope_cmids($schedule);
+    $scoped = is_array($cmids);
+
+    if ($scoped && !$cmids) {
+        // Scoped to activities that no longer exist. Nothing to reset, and clearing the
+        // whole course instead would be the opposite of what the schedule asks for.
+        return;
+    }
+
+    // Reused by every scoped delete below.
+    $scopesql = '';
+    $scopeparams = [];
+    if ($scoped) {
+        [$scopesql, $scopeparams] = $DB->get_in_or_equal($cmids, SQL_PARAMS_NAMED, 'cm');
+    }
+
     // A full wipe must happen before completion is cleared, because deleting attempts
     // can itself write completion state back.
     if ($schedule->resetdepth === 'full') {
-        local_recertify_wipe_activity_data($user, $course, $schedule);
+        local_recertify_wipe_activity_data($user, $course, $schedule, $cmids);
     }
 
     // Completion state. Handled directly because core has no per-user course
     // completion reset, then the completion cache is invalidated so the learner does
     // not keep seeing stale ticks.
-    $DB->delete_records_select(
-        'course_modules_completion',
-        'userid = :uid AND coursemoduleid IN (SELECT id FROM {course_modules} WHERE course = :cid)',
-        ['uid' => $userid, 'cid' => $courseid]
-    );
-
-    if ($DB->get_manager()->table_exists('course_modules_viewed')) {
+    if ($scoped) {
         $DB->delete_records_select(
-            'course_modules_viewed',
+            'course_modules_completion',
+            "userid = :uid AND coursemoduleid {$scopesql}",
+            $scopeparams + ['uid' => $userid]
+        );
+    } else {
+        $DB->delete_records_select(
+            'course_modules_completion',
             'userid = :uid AND coursemoduleid IN (SELECT id FROM {course_modules} WHERE course = :cid)',
             ['uid' => $userid, 'cid' => $courseid]
         );
     }
 
-    // Grades. Remove the learner's grades for every grade item in this course.
+    if ($DB->get_manager()->table_exists('course_modules_viewed')) {
+        if ($scoped) {
+            $DB->delete_records_select(
+                'course_modules_viewed',
+                "userid = :uid AND coursemoduleid {$scopesql}",
+                $scopeparams + ['uid' => $userid]
+            );
+        } else {
+            $DB->delete_records_select(
+                'course_modules_viewed',
+                'userid = :uid AND coursemoduleid IN (SELECT id FROM {course_modules} WHERE course = :cid)',
+                ['uid' => $userid, 'cid' => $courseid]
+            );
+        }
+    }
+
+    // Grades. Remove the learner's grades for every grade item in this course, or only
+    // for the selected activities' own items when the schedule is scoped. Category and
+    // course totals are never deleted directly - force_regrading() below recalculates
+    // them, which keeps the totals consistent with whatever survived.
     if ($schedule->resetdepth !== 'completion') {
-        $DB->delete_records_select(
-            'grade_grades',
-            'userid = :uid AND itemid IN (SELECT id FROM {grade_items} WHERE courseid = :cid)',
-            ['uid' => $userid, 'cid' => $courseid]
-        );
+        if ($scoped) {
+            $DB->delete_records_select(
+                'grade_grades',
+                "userid = :uid AND itemid IN (
+                    SELECT gi.id
+                      FROM {grade_items} gi
+                      JOIN {modules} m ON m.name = gi.itemmodule
+                      JOIN {course_modules} cm ON cm.module = m.id
+                                              AND cm.instance = gi.iteminstance
+                                              AND cm.course = gi.courseid
+                     WHERE gi.courseid = :cid AND gi.itemtype = 'mod' AND cm.id {$scopesql})",
+                $scopeparams + ['uid' => $userid, 'cid' => $courseid]
+            );
+        } else {
+            $DB->delete_records_select(
+                'grade_grades',
+                'userid = :uid AND itemid IN (SELECT id FROM {grade_items} WHERE courseid = :cid)',
+                ['uid' => $userid, 'cid' => $courseid]
+            );
+        }
 
         // The gradebook is flagged for recalculation rather than regraded inline.
         //
@@ -299,8 +516,33 @@ function local_recertify_reset_user(int $userid, int $courseid, stdClass $schedu
     // The regrade also fires grading events, and the criteria review those events
     // trigger can write completion rows back. Clearing both tables afterwards means the
     // learner does not come out of the reset still marked complete.
-    $DB->delete_records('course_completion_crit_compl', ['userid' => $userid, 'course' => $courseid]);
-    $DB->delete_records('course_completions', ['userid' => $userid, 'course' => $courseid]);
+    if ($scoped) {
+        // Only the criteria that point at the selected activities. Criteria of other
+        // kinds - a course grade, a date, self-completion - are left alone, as are
+        // activity criteria for activities this schedule does not touch.
+        $DB->delete_records_select(
+            'course_completion_crit_compl',
+            "userid = :uid AND course = :cid AND criteriaid IN (
+                SELECT id
+                  FROM {course_completion_criteria}
+                 WHERE course = :critcid AND criteriatype = :ctype AND moduleinstance {$scopesql})",
+            $scopeparams + [
+                'uid' => $userid,
+                'cid' => $courseid,
+                'critcid' => $courseid,
+                'ctype' => COMPLETION_CRITERIA_TYPE_ACTIVITY,
+            ]
+        );
+    } else {
+        $DB->delete_records('course_completion_crit_compl', ['userid' => $userid, 'course' => $courseid]);
+    }
+
+    // Course completion is revoked for a whole-course reset, and for a scoped reset only
+    // when one of the selected activities actually gates it. See
+    // local_recertify_scope_gates_course_completion() for why both halves matter.
+    if (!$scoped || local_recertify_scope_gates_course_completion($courseid, $cmids)) {
+        $DB->delete_records('course_completions', ['userid' => $userid, 'course' => $courseid]);
+    }
 
     // Both completion caches are keyed on "{userid}_{courseid}", so the learner's own
     // entries can be dropped without purging the cache for the whole site.
@@ -312,18 +554,24 @@ function local_recertify_reset_user(int $userid, int $courseid, stdClass $schedu
 /**
  * Remove a learner's attempts and submissions for the activity types selected on a schedule.
  *
- * @param stdClass $user The user record.
- * @param stdClass $course The course record.
- * @param stdClass $schedule The schedule record.
+ * @param stdClass   $user The user record.
+ * @param stdClass   $course The course record.
+ * @param stdClass   $schedule The schedule record.
+ * @param array|null $cmids Activities to limit the wipe to, or null for the whole course.
  */
-function local_recertify_wipe_activity_data(stdClass $user, stdClass $course, stdClass $schedule): void {
+function local_recertify_wipe_activity_data(
+    stdClass $user,
+    stdClass $course,
+    stdClass $schedule,
+    ?array $cmids = null
+): void {
     global $DB, $CFG;
 
     if (!empty($schedule->wipequizattempts)) {
         require_once($CFG->dirroot . '/mod/quiz/lib.php');
         require_once($CFG->dirroot . '/mod/quiz/locallib.php');
 
-        $quizids = $DB->get_fieldset_select('quiz', 'id', 'course = :cid', ['cid' => $course->id]);
+        $quizids = local_recertify_module_instances((int)$course->id, $cmids, 'quiz');
         foreach ($quizids as $quizid) {
             try {
                 $quizobj = \mod_quiz\quiz_settings::create((int)$quizid);
@@ -340,8 +588,8 @@ function local_recertify_wipe_activity_data(stdClass $user, stdClass $course, st
     if (!empty($schedule->wipeassignments)) {
         require_once($CFG->dirroot . '/mod/assign/locallib.php');
 
-        $assigns = $DB->get_records('assign', ['course' => $course->id], '', 'id');
-        foreach (array_keys($assigns) as $assignid) {
+        $assignids = local_recertify_module_instances((int)$course->id, $cmids, 'assign');
+        foreach ($assignids as $assignid) {
             try {
                 $cm = get_coursemodule_from_instance('assign', $assignid, $course->id, false, MUST_EXIST);
                 $assigncontext = context_module::instance($cm->id);
@@ -407,8 +655,8 @@ function local_recertify_wipe_activity_data(stdClass $user, stdClass $course, st
         // The API is used rather than deleting rows directly, because the SCORM tracking
         // schema changed in Moodle 5.0: scorm_scoes_track was replaced by scorm_attempt
         // and scorm_scoes_value. scorm_delete_tracks() handles both layouts.
-        $scorms = $DB->get_records('scorm', ['course' => $course->id], '', 'id');
-        foreach (array_keys($scorms) as $scormid) {
+        $scormids = local_recertify_module_instances((int)$course->id, $cmids, 'scorm');
+        foreach ($scormids as $scormid) {
             try {
                 scorm_delete_tracks((int)$scormid, null, (int)$user->id);
                 $scorm = $DB->get_record('scorm', ['id' => $scormid], '*', MUST_EXIST);

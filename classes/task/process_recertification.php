@@ -62,6 +62,14 @@ class process_recertification extends scheduled_task {
                 continue;
             }
 
+            // A schedule limited to activities that have all since been deleted would
+            // otherwise mark learners as reset for the cycle without clearing anything.
+            $scopecmids = local_recertify_get_scope_cmids($schedule);
+            if (is_array($scopecmids) && !$scopecmids) {
+                mtrace("  Skipping schedule {$schedule->id}: scoped to activities that no longer exist");
+                continue;
+            }
+
             // course_completions is joined for the 'completion' schedule type, which
             // measures from the learner's own completion date. At most one row exists per
             // user and course, so the join cannot multiply enrolment rows.

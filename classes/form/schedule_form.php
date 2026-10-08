@@ -101,6 +101,46 @@ class schedule_form extends \moodleform {
         $mform->addElement('header', 'depthhdr', get_string('depthsection', 'local_recertify'));
         $mform->setExpanded('depthhdr', true);
 
+        // Which activities. The picker needs the course's activity list, which is not
+        // known while a new schedule is being created, so scope is fixed to the whole
+        // course on create and becomes editable once the schedule exists.
+        if ($editing) {
+            $mform->addElement('select', 'activityscope', get_string('activityscope', 'local_recertify'), [
+                'all' => get_string('activityscope_all', 'local_recertify'),
+                'selected' => get_string('activityscope_selected', 'local_recertify'),
+            ]);
+            $mform->addHelpButton('activityscope', 'activityscope', 'local_recertify');
+
+            $activities = $this->_customdata['activities'] ?? [];
+            if ($activities) {
+                $mform->addElement(
+                    'select',
+                    'cmids',
+                    get_string('selectedactivities', 'local_recertify'),
+                    $activities,
+                    ['multiple' => true, 'size' => min(18, max(5, count($activities)))]
+                );
+                $mform->addHelpButton('cmids', 'selectedactivities', 'local_recertify');
+                $mform->hideIf('cmids', 'activityscope', 'neq', 'selected');
+            } else {
+                $mform->addElement(
+                    'static',
+                    'noactivities',
+                    get_string('selectedactivities', 'local_recertify'),
+                    get_string('noactivities', 'local_recertify')
+                );
+            }
+        } else {
+            $mform->addElement('hidden', 'activityscope', 'all');
+            $mform->setType('activityscope', PARAM_ALPHA);
+            $mform->addElement(
+                'static',
+                'activityscopenotice',
+                get_string('activityscope', 'local_recertify'),
+                get_string('activityscope_createnotice', 'local_recertify')
+            );
+        }
+
         $mform->addElement('select', 'resetdepth', get_string('resetdepth', 'local_recertify'), [
             'completion' => get_string('resetdepth_completion', 'local_recertify'),
             'grades' => get_string('resetdepth_grades', 'local_recertify'),
@@ -173,6 +213,12 @@ class schedule_form extends \moodleform {
 
         if ((int)$data['warningdays'] < 0 || (int)$data['warningdays'] > 365) {
             $errors['warningdays'] = get_string('errorwarningdays', 'local_recertify');
+        }
+
+        // A scoped schedule with nothing selected would reset nothing at all, which is
+        // never what someone means by choosing it.
+        if (($data['activityscope'] ?? 'all') === 'selected' && empty($data['cmids'])) {
+            $errors['cmids'] = get_string('errornoactivities', 'local_recertify');
         }
 
         // One schedule per course.

@@ -2,6 +2,46 @@
 
 All notable changes to `local_recertify` are documented here.
 
+## [1.3.0] - 2026-10-07
+
+### Added
+
+- **A reset can now be limited to selected activities.** A new *Activities to reset*
+  setting on each schedule chooses between every activity in the course (the default, and
+  what every existing schedule keeps doing) and a list you pick. Useful when a course
+  contains something that must survive recertification, such as an induction module.
+  - The schedule is still one per course with one clock. This narrows *what* a reset
+    clears, not *when* it runs, so `local_recertify_log` is unchanged and the existing
+    cycle key still guarantees one reset per learner per cycle.
+  - Activity completion, viewed flags, grades, and quiz/assignment/SCORM wipes are all
+    constrained to the selected activities. The per-type deletion checkboxes still apply
+    on top, so a selected quiz has its attempts removed only if *Delete quiz attempts* is
+    also ticked.
+  - Only the course completion criteria pointing at selected activities are cleared.
+    Criteria of other kinds — a course grade, a date, self-completion — are left alone.
+  - **Course completion is revoked only when one of the selected activities actually gates
+    it.** Moodle has no way to un-complete a course, so leaving the record in place would
+    let a learner stay course-complete, and certified, while a required activity sits
+    incomplete. Revoking it regardless would be as wrong the other way: clearing an
+    activity that never gated completion would reset someone's completion date and, with
+    it, their certificate. The criteria are checked instead.
+  - Every activity is offered in the picker, including those with completion tracking
+    switched off, because an untracked activity can still hold attempts and grades. Each
+    entry shows its section and whether tracking is on.
+  - The picker appears when **editing** a schedule. A new schedule has no course chosen
+    while the form is being built, so it is created against the whole course and narrowed
+    on the next screen.
+  - An activity deleted from the course is dropped from every schedule that named it, via
+    a `course_module_deleted` observer, and ignored at runtime regardless.
+  - A schedule scoped to activities that have all since been deleted resets nothing and
+    says so in the cron output, rather than falling back to clearing the whole course.
+
+### Database
+
+- `local_recertify_schedule.activityscope` (`all` by default).
+- New table `local_recertify_schedule_cm` holding the selected course module ids.
+- Both added by a guarded upgrade step; existing schedules are unaffected.
+
 ## [1.2.1] - 2026-09-07
 
 ### Changed
