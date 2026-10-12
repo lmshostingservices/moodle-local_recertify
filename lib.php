@@ -27,6 +27,13 @@
  *
  * @return stdClass
  */
+function local_recertify_extend_navigation(global_navigation $navigation): void {
+    if (isloggedin() && !isguestuser()) {
+        $navigation->add(get_string('cycles', 'local_recertify'),
+            new moodle_url('/local/recertify/cycles.php'), navigation_node::TYPE_CUSTOM);
+    }
+}
+
 function local_recertify_get_defaults(): stdClass {
     return (object)[
         'enabled' => 1,

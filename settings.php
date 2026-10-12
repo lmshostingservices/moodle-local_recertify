@@ -163,5 +163,8 @@ if ($hassiteconfig) {
         1
     ));
 
+    $ADMIN->add('local_recertify_cat', new admin_externalpage('local_recertify_cycles',
+        get_string('cycles', 'local_recertify'), new moodle_url('/local/recertify/cycles.php'),
+        'local/recertify:manage'));
     $ADMIN->add('local_recertify_cat', $settings);
 }

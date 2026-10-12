@@ -24,6 +24,16 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+$string['cycles'] = 'Certification cycles and award history';
+$string['cyclededicatedissuer'] = 'Choose a dedicated Certificate Pro activity without ordinary certificate issues. Existing certificates will not be changed.';
+$string['privacy:metadata:cycles'] = 'Certification source, learner, immutable evidence, validity dates, renewal links and allocation/revocation audit history.';
+$string['cyclesafety'] = 'Renewals preserve earlier awards and never reset progress or change enrolments. Use separate refresher learning; resolve suspended access and conflicting reset schedules first.';
+$string['cycleunavailable'] = 'The required Certificate Pro or Training Pathways plugin is unavailable.';
+$string['cycleaccessconflict'] = 'Learning access is inactive, or this course has an enabled destructive reset schedule. Resolve access or choose separate refresher content; no settings were changed.';
+$string['cycleincomplete'] = 'Required verified evidence is missing. Renewal evidence must be newer than the renewal opening and use a new program assignment.';
+$string['cyclerevoked'] = 'This cycle was revoked. Its historical records have been preserved.';
+$string['cyclepending'] = 'The award document is not available. Review the source or template and retry; the existing cycle will be reused.';
+
 $string['action'] = 'Action';
 $string['activitynotracking'] = '(completion tracking off)';
 $string['activityscope'] = 'Activities to reset';

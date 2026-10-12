@@ -2,6 +2,21 @@
 
 All notable changes to `local_recertify` are documented here.
 
+## [1.3.1] - 2026-10-12
+
+### Added
+
+- Additive certification-cycle ledger for course and program awards, with
+  evidence-bound renewal and dedicated Certificate Pro issuance.
+- Manager selection and read-only conflict previews for cycle allocation.
+- Learner history integration, including revoked and expired award states.
+
+### Compatibility
+
+- Preserve all 1.3.0 selected-activity reset behaviour and schedule data.
+- Upgrade both the live 1.3.0 schema and the earlier cycle acceptance schema
+  without resetting learner progress or replacing issued PDF documents.
+
 ## [1.3.0] - 2026-10-07
 
 ### Added

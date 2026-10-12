@@ -82,23 +82,30 @@ function xmldb_local_recertify_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026082902, 'local', 'recertify');
     }
 
-    if ($oldversion < 2026100700) {
-        // Limiting a reset to selected activities. Both additions are guarded, and the
-        // default keeps every existing schedule on its current whole-course behaviour.
+    if ($oldversion < 2026101200) {
+        // Create only the new ledger table; existing reset schedules and logs are untouched.
+        $schema = new xmldb_file(__DIR__ . '/install.xml');
+        if (!$schema->loadXMLStructure()) {
+            throw new moodle_exception('invalidxmlfile');
+        }
+        $table = $schema->getStructure()->getTable('local_recertify_cycles');
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+        upgrade_plugin_savepoint(true, 2026101200, 'local', 'recertify');
+    }
+    if ($oldversion < 2026101201) {
+        // Preserve the live 1.3.0 scoped-reset schema, including on sites that
+        // previously installed the cycle-only acceptance build.
         $table = new xmldb_table('local_recertify_schedule');
         $scope = new xmldb_field('activityscope', XMLDB_TYPE_CHAR, '10', null, XMLDB_NOTNULL, null, 'all', 'resetdepth');
         if (!$dbman->field_exists($table, $scope)) {
             $dbman->add_field($table, $scope);
         }
-
-        // The activities a scoped schedule is limited to. Created from install.xml so the
-        // table matches the shipped definition exactly rather than a hand-built copy.
         if (!$dbman->table_exists(new xmldb_table('local_recertify_schedule_cm'))) {
             $dbman->install_one_table_from_xmldb_file($installfile, 'local_recertify_schedule_cm');
         }
-
-        upgrade_plugin_savepoint(true, 2026100700, 'local', 'recertify');
+        upgrade_plugin_savepoint(true, 2026101201, 'local', 'recertify');
     }
-
     return true;
 }

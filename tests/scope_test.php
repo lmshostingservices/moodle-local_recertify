@@ -408,4 +408,50 @@ final class scope_test extends \advanced_testcase {
             'userid' => $this->user->id,
         ]));
     }
+
+    /**
+     * Adding the award ledger preserves live selected-activity schedules and completion.
+     *
+     * @return void
+     */
+    public function test_live_scope_survives_cycle_upgrade(): void {
+        global $CFG, $DB;
+        require_once($CFG->libdir . '/upgradelib.php');
+        require_once($CFG->dirroot . '/local/recertify/db/upgrade.php');
+        $schedule = $this->create_schedule(['activityscope' => 'selected'], [$this->targetcm->cmid]);
+        $before = $DB->get_record('local_recertify_schedule', ['id' => $schedule->id], '*', MUST_EXIST);
+        $links = $DB->get_records('local_recertify_schedule_cm', ['scheduleid' => $schedule->id]);
+        $completion = $DB->get_records('course_completions', ['course' => $this->course->id]);
+        $DB->get_manager()->drop_table(new \xmldb_table('local_recertify_cycles'));
+        set_config('version', 2026100700, 'local_recertify');
+
+        $this->assertTrue(xmldb_local_recertify_upgrade(2026100700));
+        $this->assertTrue($DB->get_manager()->table_exists('local_recertify_cycles'));
+        $this->assertEquals($before, $DB->get_record('local_recertify_schedule', ['id' => $schedule->id]));
+        $this->assertEquals($links, $DB->get_records('local_recertify_schedule_cm', ['scheduleid' => $schedule->id]));
+        $this->assertEquals($completion, $DB->get_records('course_completions', ['course' => $this->course->id]));
+        $this->assertEquals(2026101201, get_config('local_recertify', 'version'));
+    }
+
+    /**
+     * A cycle-only acceptance install also receives the live scope schema.
+     *
+     * @return void
+     */
+    public function test_cycle_acceptance_upgrade_adds_scope(): void {
+        global $CFG, $DB;
+        require_once($CFG->libdir . '/upgradelib.php');
+        require_once($CFG->dirroot . '/local/recertify/db/upgrade.php');
+        $schedule = $this->create_schedule();
+        $manager = $DB->get_manager();
+        $manager->drop_field(new \xmldb_table('local_recertify_schedule'), new \xmldb_field('activityscope'));
+        $manager->drop_table(new \xmldb_table('local_recertify_schedule_cm'));
+        set_config('version', 2026101200, 'local_recertify');
+
+        $this->assertTrue(xmldb_local_recertify_upgrade(2026101200));
+        $this->assertTrue($manager->table_exists('local_recertify_cycles'));
+        $this->assertTrue($manager->table_exists('local_recertify_schedule_cm'));
+        $this->assertSame('all', $DB->get_field('local_recertify_schedule', 'activityscope', ['id' => $schedule->id]));
+        $this->assertEquals(2026101201, get_config('local_recertify', 'version'));
+    }
 }
