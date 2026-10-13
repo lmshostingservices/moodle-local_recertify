@@ -45,13 +45,6 @@ class provider implements
      * @return collection
      */
     public static function get_metadata(collection $collection): collection {
-        $fields = [];
-        foreach (['userid', 'parentid', 'sourcekind', 'sourceid', 'certificateid', 'name',
-                'validity', 'status', 'evidence', 'timeopened', 'timeachieved', 'expires',
-                'createdby', 'revokedby', 'timerevoked', 'revokedreason'] as $field) {
-            $fields[$field] = 'privacy:metadata:cycles';
-        }
-        $collection->add_database_table('local_recertify_cycles', $fields, 'privacy:metadata:cycles');
         $collection->add_database_table('local_recertify_log', [
             'userid'      => 'privacy:metadata:local_recertify_log:userid',
             'courseid'    => 'privacy:metadata:local_recertify_log:courseid',
@@ -63,6 +56,9 @@ class provider implements
             'triggertype' => 'privacy:metadata:local_recertify_log:triggertype',
             'resettime'   => 'privacy:metadata:local_recertify_log:resettime',
             'scheduleid'  => 'privacy:metadata:local_recertify_log:scheduleid',
+            // The training record: what the learner had achieved when it was cleared.
+            'completiontime' => 'privacy:metadata:local_recertify_log:completiontime',
+            'finalgrade'     => 'privacy:metadata:local_recertify_log:finalgrade',
         ], 'privacy:metadata:local_recertify_log');
         return $collection;
     }
@@ -75,10 +71,6 @@ class provider implements
      */
     public static function get_contexts_for_userid(int $userid): contextlist {
         $contextlist = new contextlist();
-        $contextlist->add_from_sql(
-            "SELECT c.id FROM {context} c WHERE c.contextlevel = :level
-                AND EXISTS (SELECT 1 FROM {local_recertify_cycles} r WHERE r.userid = :userid)",
-            ['level' => CONTEXT_SYSTEM, 'userid' => $userid]);
         $sql = "SELECT DISTINCT ctx.id
                   FROM {local_recertify_log} l
                   JOIN {context} ctx ON ctx.instanceid = l.courseid AND ctx.contextlevel = :level
@@ -94,10 +86,6 @@ class provider implements
      */
     public static function get_users_in_context(userlist $userlist): void {
         $context = $userlist->get_context();
-        if ($context->contextlevel === CONTEXT_SYSTEM) {
-            $userlist->add_from_sql('userid', 'SELECT userid FROM {local_recertify_cycles}', []);
-            return;
-        }
         if ($context->contextlevel !== CONTEXT_COURSE) {
             return;
         }
@@ -117,12 +105,6 @@ class provider implements
         global $DB;
         $userid = $contextlist->get_user()->id;
         foreach ($contextlist->get_contexts() as $context) {
-            if ($context->contextlevel === CONTEXT_SYSTEM) {
-                $cycles = $DB->get_records('local_recertify_cycles', ['userid' => $userid]);
-                writer::with_context($context)->export_data([get_string('cycles', 'local_recertify')],
-                    (object)['cycles' => array_values($cycles)]);
-                continue;
-            }
             if ($context->contextlevel !== CONTEXT_COURSE) {
                 continue;
             }
@@ -143,10 +125,6 @@ class provider implements
         global $DB;
         $userid = $contextlist->get_user()->id;
         foreach ($contextlist->get_contexts() as $context) {
-            if ($context->contextlevel === CONTEXT_SYSTEM) {
-                $DB->delete_records('local_recertify_cycles', ['userid' => $userid]);
-                continue;
-            }
             if ($context->contextlevel !== CONTEXT_COURSE) {
                 continue;
             }
@@ -161,10 +139,6 @@ class provider implements
      */
     public static function delete_data_for_all_users_in_context(\context $context): void {
         global $DB;
-        if ($context->contextlevel === CONTEXT_SYSTEM) {
-            $DB->delete_records('local_recertify_cycles');
-            return;
-        }
         if ($context->contextlevel !== CONTEXT_COURSE) {
             return;
         }
@@ -179,10 +153,6 @@ class provider implements
     public static function delete_data_for_users(approved_userlist $userlist): void {
         global $DB;
         $context = $userlist->get_context();
-        if ($context->contextlevel === CONTEXT_SYSTEM) {
-            $DB->delete_records_list('local_recertify_cycles', 'userid', $userlist->get_userids());
-            return;
-        }
         if ($context->contextlevel !== CONTEXT_COURSE) {
             return;
         }

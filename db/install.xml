@@ -1,38 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/recertify/db" VERSION="20261007" COMMENT="XMLDB file for local_recertify"
+<XMLDB PATH="local/recertify/db" VERSION="20261012" COMMENT="XMLDB file for local_recertify"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
   <TABLES>
-    <TABLE NAME="local_recertify_cycles" COMMENT="Append-only achievement attempts; never resets learning">
-      <FIELDS>
-        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
-        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true"/>
-        <FIELD NAME="parentid" TYPE="int" LENGTH="10" NOTNULL="false"/>
-        <FIELD NAME="sourcekind" TYPE="char" LENGTH="20" NOTNULL="true"/>
-        <FIELD NAME="sourceid" TYPE="int" LENGTH="10" NOTNULL="true"/>
-        <FIELD NAME="certificateid" TYPE="int" LENGTH="10" NOTNULL="true"/>
-        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true"/>
-        <FIELD NAME="validity" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
-        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="open"/>
-        <FIELD NAME="evidence" TYPE="text" NOTNULL="false"/>
-        <FIELD NAME="timeopened" TYPE="int" LENGTH="10" NOTNULL="true"/>
-        <FIELD NAME="timeachieved" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
-        <FIELD NAME="expires" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
-        <FIELD NAME="createdby" TYPE="int" LENGTH="10" NOTNULL="true"/>
-        <FIELD NAME="revokedby" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
-        <FIELD NAME="timerevoked" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
-        <FIELD NAME="revokedreason" TYPE="text" NOTNULL="false"/>
-      </FIELDS>
-      <KEYS>
-        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
-      </KEYS>
-      <INDEXES>
-        <INDEX NAME="parentid" UNIQUE="true" FIELDS="parentid"/>
-        <INDEX NAME="userstatus" UNIQUE="false" FIELDS="userid,status"/>
-      </INDEXES>
-    </TABLE>
     <TABLE NAME="local_recertify_schedule" COMMENT="Per-course recertification schedule configuration">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
@@ -69,6 +40,8 @@
         <FIELD NAME="depth" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="triggertype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="scheduled" SEQUENCE="false" COMMENT="scheduled or manual"/>
         <FIELD NAME="resettime" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Cycle boundary this row belongs to, used for idempotency"/>
+        <FIELD NAME="completiontime" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="The learner course completion date captured immediately before it was cleared, 0 if they had none"/>
+        <FIELD NAME="finalgrade" TYPE="number" LENGTH="10" NOTNULL="false" SEQUENCE="false" DECIMALS="5" COMMENT="The learner course final grade captured immediately before it was cleared"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
       </FIELDS>
       <KEYS>

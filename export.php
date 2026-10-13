@@ -48,6 +48,8 @@ $header = [
     get_string('resetdepth', 'local_recertify'),
     get_string('trigger', 'local_recertify'),
     get_string('cycledate', 'local_recertify'),
+    get_string('completedon', 'local_recertify'),
+    get_string('finalgrade', 'local_recertify'),
 ];
 $csv->add_data($header);
 
@@ -81,6 +83,8 @@ foreach ($rs as $log) {
         $log->depth !== '' ? get_string('resetdepth_' . $log->depth, 'local_recertify') : '',
         $log->triggertype,
         $log->resettime ? userdate($log->resettime) : '',
+        !empty($log->completiontime) ? userdate($log->completiontime) : '',
+        $log->finalgrade !== null ? format_float($log->finalgrade, 2) : '',
     ];
     $csv->add_data($row);
 }

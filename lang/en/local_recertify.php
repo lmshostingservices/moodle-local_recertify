@@ -24,16 +24,6 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$string['cycles'] = 'Certification cycles and award history';
-$string['cyclededicatedissuer'] = 'Choose a dedicated Certificate Pro activity without ordinary certificate issues. Existing certificates will not be changed.';
-$string['privacy:metadata:cycles'] = 'Certification source, learner, immutable evidence, validity dates, renewal links and allocation/revocation audit history.';
-$string['cyclesafety'] = 'Renewals preserve earlier awards and never reset progress or change enrolments. Use separate refresher learning; resolve suspended access and conflicting reset schedules first.';
-$string['cycleunavailable'] = 'The required Certificate Pro or Training Pathways plugin is unavailable.';
-$string['cycleaccessconflict'] = 'Learning access is inactive, or this course has an enabled destructive reset schedule. Resolve access or choose separate refresher content; no settings were changed.';
-$string['cycleincomplete'] = 'Required verified evidence is missing. Renewal evidence must be newer than the renewal opening and use a new program assignment.';
-$string['cyclerevoked'] = 'This cycle was revoked. Its historical records have been preserved.';
-$string['cyclepending'] = 'The award document is not available. Review the source or template and retry; the existing cycle will be reused.';
-
 $string['action'] = 'Action';
 $string['activitynotracking'] = '(completion tracking off)';
 $string['activityscope'] = 'Activities to reset';
@@ -43,6 +33,7 @@ $string['activityscope_help'] = '"All activities" clears every activity in the c
 $string['activityscope_selected'] = 'Only the selected activities';
 $string['addschedule'] = 'Add recertification schedule';
 $string['auditlog'] = 'Audit log';
+$string['completedon'] = 'Completed on';
 $string['courseid'] = 'Course ID';
 $string['cycledate'] = 'Cycle date';
 $string['defaultsheading'] = 'Defaults for new schedules';
@@ -60,6 +51,7 @@ $string['errornoactivities'] = 'Select at least one activity, or set this back t
 $string['errorwarningdays'] = 'Warning days must be between 0 and 365.';
 $string['everynmonths'] = 'Every {$a} months';
 $string['exportauditlog'] = 'Export audit log (CSV)';
+$string['finalgrade'] = 'Final grade';
 $string['fixeddate'] = 'Fixed reset date (MM-DD)';
 $string['fixeddate_help'] = 'The calendar date each year on which every learner in the course is reset, written as MM-DD. Learners who enrolled after the most recent occurrence are not reset until the next one.';
 $string['interval'] = 'Interval';
@@ -80,7 +72,9 @@ $string['pluginname'] = 'Course Recertification';
 $string['pluginname_help'] = 'Periodically resets course completion so learners must re-certify, with per-course schedules, advance warnings and a full audit trail.';
 $string['privacy:metadata:local_recertify_log'] = 'Audit log of recertification resets and warnings.';
 $string['privacy:metadata:local_recertify_log:action'] = 'Whether the entry records a reset or an advance warning.';
+$string['privacy:metadata:local_recertify_log:completiontime'] = 'The date the learner completed the course, recorded before the reset cleared it.';
 $string['privacy:metadata:local_recertify_log:courseid'] = 'The course the learner was reset in.';
+$string['privacy:metadata:local_recertify_log:finalgrade'] = 'The learner\'s final course grade, recorded before the reset cleared it.';
 $string['privacy:metadata:local_recertify_log:resettime'] = 'The recertification cycle the entry belongs to.';
 $string['privacy:metadata:local_recertify_log:scheduleid'] = 'The recertification schedule the entry was made under.';
 $string['privacy:metadata:local_recertify_log:triggertype'] = 'Whether the reset was scheduled or triggered manually.';

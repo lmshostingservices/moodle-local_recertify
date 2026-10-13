@@ -183,9 +183,11 @@ if (has_capability('local/recertify:viewlog', $context)) {
             get_string('course'),
             get_string('action', 'local_recertify'),
             get_string('resetdepth', 'local_recertify'),
+            get_string('completedon', 'local_recertify'),
+            get_string('finalgrade', 'local_recertify'),
             get_string('time'),
         ];
-        $logtable->align = ['left', 'left', 'left', 'left', 'left'];
+        $logtable->align = ['left', 'left', 'left', 'left', 'left', 'left', 'left'];
         $logtable->attributes['class'] = 'generaltable';
 
         foreach ($logs as $log) {
@@ -197,6 +199,8 @@ if (has_capability('local/recertify:viewlog', $context)) {
                 $c ? format_string($c->shortname) : $log->courseid,
                 get_string('log_' . $log->action, 'local_recertify'),
                 $log->depth !== '' ? get_string('resetdepth_' . $log->depth, 'local_recertify') : '-',
+                !empty($log->completiontime) ? userdate($log->completiontime) : '-',
+                $log->finalgrade !== null ? format_float($log->finalgrade, 2) : '-',
                 userdate($log->timecreated),
             ];
         }

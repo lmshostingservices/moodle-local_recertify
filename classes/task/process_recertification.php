@@ -73,17 +73,31 @@ class process_recertification extends scheduled_task {
             // course_completions is joined for the 'completion' schedule type, which
             // measures from the learner's own completion date. At most one row exists per
             // user and course, so the join cannot multiply enrolment rows.
-            $sql = "SELECT ue.id, ue.userid, ue.timestart, ue.timecreated, cc.timecompleted
+            //
+            // The course total grade is joined here too, rather than looked up per
+            // learner, so the training register costs no extra queries. A course has
+            // exactly one itemtype='course' grade item and at most one grade row per
+            // user against it, so neither join can multiply enrolment rows.
+            $sql = "SELECT ue.id, ue.userid, ue.timestart, ue.timecreated, cc.timecompleted,
+                           gg.finalgrade
                       FROM {user_enrolments} ue
                       JOIN {enrol} e ON e.id = ue.enrolid
                       JOIN {user} u ON u.id = ue.userid
                  LEFT JOIN {course_completions} cc
                         ON cc.userid = ue.userid AND cc.course = e.courseid
+                 LEFT JOIN {grade_items} gi
+                        ON gi.courseid = e.courseid AND gi.itemtype = :itemtype
+                 LEFT JOIN {grade_grades} gg
+                        ON gg.itemid = gi.id AND gg.userid = ue.userid
                      WHERE e.courseid = :cid
                        AND ue.status = :active
                        AND u.deleted = 0
                        AND u.suspended = 0";
-            $params = ['cid' => $schedule->courseid, 'active' => ENROL_USER_ACTIVE];
+            $params = [
+                'cid' => $schedule->courseid,
+                'active' => ENROL_USER_ACTIVE,
+                'itemtype' => 'course',
+            ];
             $enrolments = $DB->get_records_sql($sql, $params);
 
             foreach ($enrolments as $ue) {
@@ -94,6 +108,10 @@ class process_recertification extends scheduled_task {
                 // Null for a learner with no completion record, and also for one whose
                 // record exists but is still in progress.
                 $timecompleted = (int)($ue->timecompleted ?? 0);
+
+                // The training record. Captured here, before anything is cleared,
+                // because once the reset runs neither value can be recovered.
+                $finalgrade = isset($ue->finalgrade) ? (float)$ue->finalgrade : null;
 
                 // Is a reset due? This is the most recent cycle boundary already passed,
                 // never a future date, so the comparison can actually succeed.
@@ -106,7 +124,10 @@ class process_recertification extends scheduled_task {
                         (int)$ue->userid,
                         $schedule->resetdepth,
                         'reset',
-                        $duetime
+                        $duetime,
+                        'scheduled',
+                        $timecompleted,
+                        $finalgrade
                     );
 
                     if ($written) {

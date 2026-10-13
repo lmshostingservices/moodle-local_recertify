@@ -2,20 +2,52 @@
 
 All notable changes to `local_recertify` are documented here.
 
-## [1.3.1] - 2026-10-12
+## [1.4.1] - 2026-10-13
+
+### Release numbering
+
+Released as 1.4.1 / `2026101202`. A build numbered `2026101200` was rejected by the
+release pipeline because a higher number, `2026101201`, was already current. The upgrade
+step's guard and savepoint were raised to `2026101202` to match - left at `2026101200`
+they would have been skipped on any site already running `2026101201`, so those sites
+would never have gained the two new columns.
 
 ### Added
 
-- Additive certification-cycle ledger for course and program awards, with
-  evidence-bound renewal and dedicated Certificate Pro issuance.
-- Manager selection and read-only conflict previews for cycle allocation.
-- Learner history integration, including revoked and expired award states.
+- **The audit log is now a training record, not just a record of resets.** Every reset
+  row captures the learner's **course completion date** and **final course grade** as
+  they were immediately before the reset cleared them. The log therefore reads
+  "completed on X with grade Y, reset on Z", and that record outlives the data it
+  describes.
+  - Both values are shown in the audit log on the management page and included in the
+    CSV export, which is what an auditor will actually be handed.
+  - They are captured in the task **before** `local_recertify_reset_user()` runs, since
+    neither can be recovered afterwards.
+  - The course total grade is collected by joining it onto the enrolment query the task
+    already runs, so the register costs no additional queries per learner. A course has
+    exactly one `itemtype='course'` grade item and at most one grade row per user
+    against it, so the join cannot multiply enrolment rows.
+  - A learner with no grade records **null**, not zero. Zero is a real mark, and
+    recording it for someone who was never graded would make the register state
+    something untrue.
+  - Warning rows carry no completion data, because nothing has been cleared.
+  - **The "Record reset depth in the audit log" setting does not suppress this.** That
+    setting concerns reset detail; the completion snapshot is the compliance record and
+    is unrecoverable once the reset has run, so it is always kept.
 
-### Compatibility
+### Database
 
-- Preserve all 1.3.0 selected-activity reset behaviour and schedule data.
-- Upgrade both the live 1.3.0 schema and the earlier cycle acceptance schema
-  without resetting learner progress or replacing issued PDF documents.
+- `local_recertify_log.completiontime` (integer, defaults to 0) and
+  `local_recertify_log.finalgrade` (nullable number), added by a guarded upgrade step.
+- Rows written before this release keep `completiontime` 0 and a null `finalgrade` —
+  honest, since that data was never captured for them.
+
+### Known limitation
+
+The register starts from the version being installed. It cannot recover completions
+already cleared by earlier releases, and it only records completions that this plugin
+itself resets. Learners enrolled with a backdated enrolment date but no Moodle completion
+record have nothing for it to capture until their first real completion.
 
 ## [1.3.0] - 2026-10-07
 

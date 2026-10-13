@@ -25,8 +25,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_recertify';
-$plugin->version = 2026101201;
+$plugin->version = 2026101202;
 $plugin->requires = 2024042200;        // Moodle 4.4.
 $plugin->supported = [404, 502];       // Moodle 4.4 to 5.2.
 $plugin->maturity = MATURITY_STABLE;
-$plugin->release = '1.3.1';
+$plugin->release = '1.4.1';

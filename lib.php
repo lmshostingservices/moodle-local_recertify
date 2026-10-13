@@ -27,13 +27,6 @@
  *
  * @return stdClass
  */
-function local_recertify_extend_navigation(global_navigation $navigation): void {
-    if (isloggedin() && !isguestuser()) {
-        $navigation->add(get_string('cycles', 'local_recertify'),
-            new moodle_url('/local/recertify/cycles.php'), navigation_node::TYPE_CUSTOM);
-    }
-}
-
 function local_recertify_get_defaults(): stdClass {
     return (object)[
         'enabled' => 1,
@@ -691,7 +684,11 @@ function local_recertify_wipe_activity_data(
  * @param string $depth Reset depth label.
  * @param string $action 'reset' or 'warned'.
  * @param int    $resettime The cycle boundary this row belongs to.
- * @param string $triggertype 'scheduled' or 'manual'.
+ * @param string     $triggertype 'scheduled' or 'manual'.
+ * @param int        $completiontime The learner's course completion date, captured before the
+ *                   reset clears it. 0 when they had none.
+ * @param float|null $finalgrade The learner's course final grade, captured before the reset
+ *                   clears it. Null when they had none.
  * @return bool True if a row was written, false if one already existed for this cycle.
  */
 function local_recertify_log(
@@ -701,13 +698,17 @@ function local_recertify_log(
     string $depth,
     string $action = 'reset',
     int $resettime = 0,
-    string $triggertype = 'scheduled'
+    string $triggertype = 'scheduled',
+    int $completiontime = 0,
+    ?float $finalgrade = null
 ): bool {
     global $DB;
 
     if (!get_config('local_recertify', 'enableauditlog') && $action === 'reset') {
         // The audit log can be switched off, but cycle bookkeeping still needs the row,
-        // so only the optional detail is dropped, never the row itself.
+        // so only the optional detail is dropped, never the row itself. The completion
+        // snapshot is deliberately not covered by that setting: it is the training
+        // record, not reset detail, and once the reset runs it cannot be recovered.
         $depth = '';
     }
 
@@ -729,6 +730,8 @@ function local_recertify_log(
         'depth' => $depth,
         'triggertype' => $triggertype,
         'resettime' => $resettime,
+        'completiontime' => $completiontime,
+        'finalgrade' => $finalgrade,
         'timecreated' => time(),
     ]);
 

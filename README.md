@@ -11,6 +11,7 @@ A local plugin for Moodle that resets activity completion, course completion and
 - **Advance warning** — learners are notified a configurable number of days before their reset, exactly once per cycle
 - **Reset notification** — an optional message at the moment the reset happens
 - **Idempotent by design** — every reset and warning is keyed to the cycle it belongs to, so no learner is reset twice or emailed twice for the same cycle, however often cron runs
+- **Training record** — every reset records the learner's completion date and final grade as they were before the wipe, so the log reads "completed on X, reset on Y" and survives the data it describes
 - **Full audit log** — every reset and every warning is recorded, with CSV export
 - **Site-wide defaults** — set the values new schedules start from
 - **GDPR Privacy API** — full privacy provider with export and deletion support
@@ -68,6 +69,26 @@ course with one clock.
 > incomplete. Revoking it every time would be equally wrong: clearing an activity that
 > never gated completion would reset their completion date and trigger a fresh
 > certificate for no reason.
+
+## The training record
+
+The audit log is not only a record of what the plugin did — it is the record that the
+training happened. Each reset row stores the learner's **course completion date** and
+**final course grade** exactly as they were immediately before the reset cleared them,
+so the log reads "completed on X with grade Y, reset on Z". Both appear on the
+management page and in the CSV export.
+
+A learner with no grade records null rather than zero: zero is a real mark, and
+recording it for someone never graded would make the register untrue.
+
+The **Record reset depth in the audit log** setting does not switch this off. That
+setting concerns reset detail; the completion snapshot cannot be recovered once the
+reset has run, so it is always kept.
+
+> **It starts from the day you install this version.** It cannot recover completions
+> already cleared by an earlier release, and it only captures completions this plugin
+> itself resets. Learners given a backdated *enrolment* date but no Moodle completion
+> record have nothing to capture until their first real completion.
 
 ## Reset depths
 
